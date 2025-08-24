@@ -3,7 +3,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-const TOKEN = '7744705463:AAEf1w3i8k6yPqfCEmuCMOsjbzspVRNIjXM';
+const TOKEN = '8298525238:AAGIfiB1yXQBpkcR01kWIBzi7ImCWoVv7Qw';
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 const SLOT_SECONDS = 30;
