@@ -272,6 +272,9 @@ function updateUserStats(chatId, prediction, actualResult, site) {
     // Enable reverse prediction mode after a loss (only if not already in reverse mode)
     if (!reversePredictionMode.has(chatId)) {
       reversePredictionMode.set(chatId, true);
+    } else {
+      // If already in reverse mode and loses again, disable reverse mode
+      reversePredictionMode.delete(chatId);
     }
     
     return "LOSE"; 
@@ -303,9 +306,6 @@ async function getPredictionForUser(chatId, site) {
     // Check if we should reverse the prediction due to previous loss
     if (reversePredictionMode.has(chatId)) {
       const reversedPrediction = strategy.prediction === "BIG" ? "SMALL" : "BIG";
-      
-      // Clear reverse mode after using it once
-      reversePredictionMode.delete(chatId);
       
       return {
         prediction: reversedPrediction,
@@ -850,54 +850,55 @@ async function broadcastPrediction() {
           
           const prediction = await getPredictionForUser(chatId, site);
           if (prediction.prediction === "UNKNOWN") {
-            console.log(`⚠️ Could not generate prediction for ${userName}`);
+            console.log(`⚠️ Could not generate ${site} prediction for ${userName}`);
             continue;
           }
-          
-          const predictionData = {
-            prediction: prediction.prediction,
-            issueNumber: issue.data.issueNumber,
-            timestamp: Date.now(),
-            site: site
-          };
-          
-          predictionHistory.set(chatId, predictionData);
           
           const now = new Date();
           const clock = now.toLocaleTimeString('en-US', { hour12: true });
           
-          let predictionMessage = `🎰 *${site} Predictor Pro*\n`;
-          predictionMessage += `📅 Period: \`${issue.data.issueNumber}\`\n`;
-          predictionMessage += `🕒 ${clock}\n\n`;
-          predictionMessage += `🔮 *Prediction: ${prediction.prediction}*\n`;
-          predictionMessage += `📊 Confidence: ${prediction.confidence}\n`;
-          predictionMessage += `🧠 Strategy: ${prediction.formulaName}\n\n`;
-          predictionMessage += `⚠️ လိုက်ဆပြင်ဆင်ပြီးဆော့ပါ ဆတက်�နိုင်ပါတယ်\n\n`;
-          predictionMessage += `⚠️ အရင်းရဲ့ 20% နိုင်ရင်နားပါ`;
+          let message = `🎰 *${site} Predictor Pro*\n`;
+          message += `📅 Period: \`${issue.data.issueNumber}\`\n`;
+          message += `🕒 ${clock}\n\n`;
+          message += `🔮 *Prediction: ${prediction.prediction}*\n`;
+          message += `📊 Confidence: ${prediction.confidence}\n`;
+          message += `🧠 Strategy: ${prediction.formulaName}\n\n`;
+          message += `⚠️ လိုက်ဆပြင်ဆင်ပြီးဆော့ပါ ဆတက်�နိုင်ပါတယ်\n\n`;
+          message += `⚠️ အရင်းရဲ့ 20% နိုင်ရင်နားပါ`;
           
-          bot.sendMessage(chatId, predictionMessage, { 
+          const sentMessage = await bot.sendMessage(chatId, message, { 
             parse_mode: 'Markdown',
             reply_markup: getMainKeyboard(site)
           });
+          
+          predictionHistory.set(chatId, {
+            prediction: prediction.prediction,
+            issueNumber: issue.data.issueNumber,
+            timestamp: now,
+            site: site
+          });
+          
+          console.log(`✅ ${site} Prediction sent to ${userName}: ${prediction.prediction} (${prediction.formulaName})`);
           
         } catch (err) {
           const userName = userNames.get(chatId) || 'Unknown User';
           console.error(`❌ Error sending prediction to ${userName}:`, err.message);
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
   } catch (err) {
-    console.error("❌ Error in broadcast loop:", err.message);
+    console.error("❌ Broadcast error:", err.message);
   }
+  
+  console.log("✅ Prediction broadcast cycle completed");
 }
 
-// ===== SCHEDULERS =====
+// ===== MAIN LOOP =====
 setInterval(broadcastPrediction, SLOT_SECONDS * 1000);
-setInterval(checkKeyExpiry, 60000);
-setInterval(showUserStats, 300000);
+setInterval(checkKeyExpiry, 60000); // Check key expiry every minute
+setInterval(showUserStats, 300000); // Show user stats every 5 minutes
 
-// ===== STARTUP =====
 console.log("🤖 Bot is running...");
-showUserStats();
+console.log("📊 User statistics will be displayed every 5 minutes");
+console.log("🔄 Reverse prediction mode is ACTIVE - will reverse predictions after a loss");
+console.log("🔄 If reverse mode loses again, it will return to normal mode");
