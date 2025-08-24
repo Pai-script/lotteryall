@@ -3,7 +3,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-const TOKEN = '8179915269:AAEI9lytu11e0gzokVNCCu1ZzfBEkDNSEH4';
+const TOKEN = '7744705463:AAEf1w3i8k6yPqfCEmuCMOsjbzspVRNIjXM';
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 const SLOT_SECONDS = 30;
@@ -269,8 +269,10 @@ function updateUserStats(chatId, prediction, actualResult, site) {
     stats.losses++; 
     stats.streak = 0; 
     
-    // Enable reverse prediction mode after a loss
-    reversePredictionMode.set(chatId, true);
+    // Enable reverse prediction mode after a loss (only if not already in reverse mode)
+    if (!reversePredictionMode.has(chatId)) {
+      reversePredictionMode.set(chatId, true);
+    }
     
     return "LOSE"; 
   }
@@ -300,29 +302,23 @@ async function getPredictionForUser(chatId, site) {
   if (strategy) {
     // Check if we should reverse the prediction due to previous loss
     if (reversePredictionMode.has(chatId)) {
+      const reversedPrediction = strategy.prediction === "BIG" ? "SMALL" : "BIG";
+      
+      // Clear reverse mode after using it once
+      reversePredictionMode.delete(chatId);
+      
       return {
-        prediction: strategy.prediction === "BIG" ? "SMALL" : "BIG",
+        prediction: reversedPrediction,
         formulaName: "Reverse Strategy (After Loss)",
         confidence: "Medium",
-        calculation: `Reversed: ${strategy.prediction} → ${strategy.prediction === "BIG" ? "SMALL" : "BIG"}`
+        calculation: `Reversed: ${strategy.prediction} → ${reversedPrediction}`
       };
     }
     return strategy;
   }
   
-  // Default prediction with reverse logic if needed
-  let defaultPrediction = { prediction: "BIG", formulaName: "KoZaw's Strategy", confidence: "Low", calculation: "No clear pattern detected" };
-  
-  if (reversePredictionMode.has(chatId)) {
-    defaultPrediction = {
-      prediction: "SMALL",
-      formulaName: "Reverse Strategy (After Loss)",
-      confidence: "Low",
-      calculation: "Reversed: BIG → SMALL (No clear pattern)"
-    };
-  }
-  
-  return defaultPrediction;
+  // Default prediction
+  return { prediction: "BIG", formulaName: "KoZaw's Strategy", confidence: "Low", calculation: "No clear pattern detected" };
 }
 
 async function getPredictionMessage(chatId, site) {
@@ -853,40 +849,37 @@ async function broadcastPrediction() {
           }
           
           const prediction = await getPredictionForUser(chatId, site);
-          
-          if (prediction.prediction !== "UNKNOWN") {
-            const predictionData = {
-              prediction: prediction.prediction,
-              issueNumber: issue.data.issueNumber,
-              timestamp: Date.now(),
-              site: site
-            };
-            
-            predictionHistory.set(chatId, predictionData);
-            
-            const now = new Date();
-            const clock = now.toLocaleTimeString('en-US', { hour12: true });
-            
-            let message = `🎰 *${site} Predictor Pro*\n`;
-            message += `📅 Period: \`${issue.data.issueNumber}\`\n`;
-            message += `🕒 ${clock}\n\n`;
-            message += `🔮 *Prediction: ${prediction.prediction}*\n`;
-            message += `📊 Confidence: ${prediction.confidence}\n`;
-            message += `🧠 Strategy: ${prediction.formulaName}\n\n`;
-            
-            // Add reverse mode indicator if active
-            if (reversePredictionMode.has(chatId)) {
-              message += `🔄 *Reverse Mode Active* (After previous loss)\n\n`;
-            }
-            
-            message += `⚠️ လိုက်ဆပြင်ဆင်ပြီးဆော့ပါ ဆတက်�နိုင်ပါတယ်\n\n`;
-            message += `⚠️ အရင်းရဲ့ 20% နိုင်ရင်နားပါ`;
-            
-            bot.sendMessage(chatId, message, { 
-              parse_mode: 'Markdown',
-              reply_markup: getMainKeyboard(site)
-            });
+          if (prediction.prediction === "UNKNOWN") {
+            console.log(`⚠️ Could not generate prediction for ${userName}`);
+            continue;
           }
+          
+          const predictionData = {
+            prediction: prediction.prediction,
+            issueNumber: issue.data.issueNumber,
+            timestamp: Date.now(),
+            site: site
+          };
+          
+          predictionHistory.set(chatId, predictionData);
+          
+          const now = new Date();
+          const clock = now.toLocaleTimeString('en-US', { hour12: true });
+          
+          let predictionMessage = `🎰 *${site} Predictor Pro*\n`;
+          predictionMessage += `📅 Period: \`${issue.data.issueNumber}\`\n`;
+          predictionMessage += `🕒 ${clock}\n\n`;
+          predictionMessage += `🔮 *Prediction: ${prediction.prediction}*\n`;
+          predictionMessage += `📊 Confidence: ${prediction.confidence}\n`;
+          predictionMessage += `🧠 Strategy: ${prediction.formulaName}\n\n`;
+          predictionMessage += `⚠️ လိုက်ဆပြင်ဆင်ပြီးဆော့ပါ ဆတက်�နိုင်ပါတယ်\n\n`;
+          predictionMessage += `⚠️ အရင်းရဲ့ 20% နိုင်ရင်နားပါ`;
+          
+          bot.sendMessage(chatId, predictionMessage, { 
+            parse_mode: 'Markdown',
+            reply_markup: getMainKeyboard(site)
+          });
+          
         } catch (err) {
           const userName = userNames.get(chatId) || 'Unknown User';
           console.error(`❌ Error sending prediction to ${userName}:`, err.message);
@@ -898,27 +891,13 @@ async function broadcastPrediction() {
   } catch (err) {
     console.error("❌ Error in broadcast loop:", err.message);
   }
-  
-  console.log("✅ Prediction broadcast cycle completed");
 }
 
-// ===== STARTUP =====
-console.log("🤖 Starting Lottery Prediction Bot...");
-console.log("📊 Initial user statistics:");
-showUserStats();
-
-// ===== INTERVALS =====
+// ===== SCHEDULERS =====
 setInterval(broadcastPrediction, SLOT_SECONDS * 1000);
 setInterval(checkKeyExpiry, 60000);
 setInterval(showUserStats, 300000);
 
-// ===== ERROR HANDLING =====
-process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err.message);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-console.log("✅ Bot is now running and ready to accept commands!");
+// ===== STARTUP =====
+console.log("🤖 Bot is running...");
+showUserStats();
