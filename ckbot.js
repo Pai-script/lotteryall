@@ -126,6 +126,21 @@ async function checkKeyValidity(key, chatId, retries = 3) {
         return { valid: false, reason: "Expired Key\nContact Developer @leostrike223 for renewal" };
       }
       
+      // Check if key already assigned to another user (1 key per user feature)
+      if (data.chatId && data.chatId !== chatId.toString()) {
+        console.log(`❌ Key already assigned to another user: ${userName}`);
+        return { valid: false, reason: "Key already in use by another user\nContact Developer @leostrike223" };
+      }
+      
+      // If key is not assigned to any user, assign it to this user
+      if (!data.chatId) {
+        await axiosInstance.patch(`${FIREBASE_URL}/${key}.json`, {
+          chatId: chatId.toString(),
+          activationDate: Date.now()
+        });
+        console.log(`✅ Key assigned to user: ${userName}`);
+      }
+      
       keyExpiryTimers.set(chatId, data.expiresAt);
 
       const devices = data.devices ? Object.keys(data.devices).length : 0;
@@ -952,7 +967,7 @@ async function broadcastPrediction() {
             message += `🧠 Strategy: ${prediction.formulaName}\n\n`;
             
             message += `⚠️ လိုက်ဆပြင်ဆင်ပြီးဆော့ပါ ဆတက် နိုင်ပါတယ်\n\n`;
-            message += `⚠️ အရင်းရဲ့ 20% နိုင်ရင်နားပါ`;
+            message += `⚠️ အရင်းရဲ့ 20% နိုင်�ရင်နားပါ`;
             
             const strategy = userStrategy.get(chatId) || "KOZAW";
             bot.sendMessage(chatId, message, { 
