@@ -1,9 +1,9 @@
-const TelegramBot = require('node-telegram-bot-api');
+8021091374:AAG70AOGpks_IUBwQ4zOIIrPDGXjuiOafmUconst TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-const TOKEN = '7983353841:AAFTdw4_79mqghgn29W5CgAnc01yUz2fIOE';
+const TOKEN = '8021091374:AAG70AOGpks_IUBwQ4zOIIrPDGXjuiOafmU';
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 const SLOT_SECONDS = 60;
