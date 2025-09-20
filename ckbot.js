@@ -7,7 +7,7 @@ const TOKEN = '8021091374:AAG70AOGpks_IUBwQ4zOIIrPDGXjuiOafmU';
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 const SLOT_SECONDS = 60;
-const FIREBASE_URL = "https://admin-panel-17295-default-rtdb.firebaseio.com/users";
+const FIREBASE_URL = "https://new-admin-f8d18-default-rtdb.firebaseio.com";
 
 // Create axios instance with better timeout settings
 const axiosInstance = axios.create({
